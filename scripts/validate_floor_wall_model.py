@@ -52,15 +52,23 @@ def main() -> None:
 
     source_document = FreeCAD.openDocument(str(FCSTD_PATH))
     floor = source_document.getObject("Floor")
+    vertical_profiles = source_document.getObject("VerticalLProfiles")
     wall = source_document.getObject("WallSolid")
-    if floor is None or wall is None:
-        raise RuntimeError("The FCStd does not contain the required Floor and WallSolid objects.")
+    if floor is None or vertical_profiles is None or wall is None:
+        raise RuntimeError(
+            "The FCStd does not contain the required Floor, VerticalLProfiles, and WallSolid objects."
+        )
     tiles = [obj for obj in floor.Group if obj.Name.startswith("FloorTile")]
     if len(tiles) != 21:
         raise RuntimeError(f"Expected 21 floor tiles, found {len(tiles)}.")
+    profiles = [obj for obj in vertical_profiles.Group if obj.Name.startswith("VerticalLProfile")]
+    if len(profiles) != 15:
+        raise RuntimeError(f"Expected 15 vertical L profiles, found {len(profiles)}.")
     if any(tile.Placement != FreeCAD.Placement() for tile in tiles):
         raise RuntimeError("A floor tile is not at the shared global origin.")
-    source_objects = tiles + [wall]
+    if any(profile.Placement != FreeCAD.Placement() for profile in profiles):
+        raise RuntimeError("A vertical L profile is not at the shared global origin.")
+    source_objects = tiles + profiles + [wall]
     source_bounds = bounds_for(source_objects)
     source_solids = sum(len(obj.Shape.Solids) for obj in source_objects)
     FreeCAD.closeDocument(source_document.Name)
@@ -82,6 +90,7 @@ def main() -> None:
                 "fcstd": str(FCSTD_PATH),
                 "step": str(STEP_PATH),
                 "tile_count": len(tiles),
+                "vertical_profile_count": len(profiles),
                 "source_solid_count": source_solids,
                 "imported_solid_count": imported_solids,
                 "source_bounds_mm": source_bounds,

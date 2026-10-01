@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 
 import FreeCAD
@@ -14,6 +15,7 @@ SOURCE_DXF = Path(r"D:\github\DXF2FREECAD2STEP\dxf\Drawing1 - Test Zevekote.dxf"
 OUTPUT_FCSTD = Path(r"D:\github\DXF2FREECAD2STEP\fcstd\Drawing1 - Test Zevekote_floor_wall.FCStd")
 OUTPUT_REPORT = OUTPUT_FCSTD.with_suffix(".validation.json")
 OUTPUT_STEP_DIRECTORY = Path(r"D:\github\DXF2FREECAD2STEP\step")
+PROFILE_MANIFEST = Path(r"D:\github\DXF2FREECAD2STEP\fcstd\Drawing1 - Test Zevekote_vertical_l_profiles.json")
 FLOOR_THICKNESS_MM = 250.0
 WALL_THICKNESS_MM = 250.0
 WALL_HEIGHT_MM = 3300.0
@@ -21,6 +23,7 @@ MIDDLE_LEVEL_ROW_DXF_CM = 933.5357606862363
 MIDDLE_LEVEL_ROW_MM = 3468.0
 TILE_COLUMNS = 3
 TILE_ROWS = 7
+VERTICAL_PROFILE_COUNT = 15
 
 
 def add_string_property(obj, name: str, value: str, group: str = "Traceability") -> None:
@@ -181,6 +184,89 @@ def add_floor_tiles(document, floor_component, outline):
     return tiles, x_coordinates, y_coordinates
 
 
+def profile_vector(profile, local_x_cm: float, local_y_cm: float, z_value: float):
+    rotation = math.radians(profile["rotation_degrees"])
+    source_x = local_x_cm * math.cos(rotation) - local_y_cm * math.sin(rotation)
+    source_y = local_x_cm * math.sin(rotation) + local_y_cm * math.cos(rotation)
+    global_x, global_y = profile["global_xy_mm"]
+    return FreeCAD.Vector(global_x + source_x * 10.0, global_y - source_y * 10.0, z_value)
+
+
+def make_vertical_l_profile(profile, base_z: float, height_mm: float):
+    outer_top = profile_vector(profile, 7.6, 0.0, base_z)
+    flange_start = profile_vector(profile, 0.0, 0.0, base_z)
+    flange_inner = profile_vector(profile, 0.0, -0.2, base_z)
+    inner_arc_start = profile_vector(profile, 7.6, -0.2, base_z)
+    inner_arc_middle = profile_vector(profile, 7.7414213562, -0.2585786438, base_z)
+    inner_arc_end = profile_vector(profile, 7.8, -0.4, base_z)
+    web_inner_end = profile_vector(profile, 7.8, -4.5, base_z)
+    web_outer_end = profile_vector(profile, 8.0, -4.5, base_z)
+    outer_arc_start = profile_vector(profile, 8.0, -0.4, base_z)
+    outer_arc_middle = profile_vector(profile, 7.8828427125, -0.1171572875, base_z)
+
+    edges = [
+        Part.makeLine(outer_top, flange_start),
+        Part.makeLine(flange_start, flange_inner),
+        Part.makeLine(flange_inner, inner_arc_start),
+        Part.Arc(inner_arc_start, inner_arc_middle, inner_arc_end).toShape(),
+        Part.makeLine(inner_arc_end, web_inner_end),
+        Part.makeLine(web_inner_end, web_outer_end),
+        Part.makeLine(web_outer_end, outer_arc_start),
+        Part.Arc(outer_arc_start, outer_arc_middle, outer_top).toShape(),
+    ]
+    return Part.Face(Part.Wire(edges)).extrude(FreeCAD.Vector(0.0, 0.0, height_mm))
+
+
+def add_vertical_l_profiles(document, assembly, outline):
+    if not PROFILE_MANIFEST.is_file():
+        raise FileNotFoundError(
+            "Vertical L-profile manifest is missing. Run scripts/extract_vertical_l_profiles.py first."
+        )
+    manifest = json.loads(PROFILE_MANIFEST.read_text(encoding="utf-8"))
+    datum_x, datum_y = manifest["datum_dxf_cm"]
+    expected_x, expected_y = outline["datum_dxf_cm"]
+    if abs(datum_x - expected_x) > 0.000001 or abs(datum_y - expected_y) > 0.000001:
+        raise RuntimeError("Vertical L-profile manifest does not use the Floor/Wall point-1 datum.")
+    profiles_data = manifest["profiles"]
+    if len(profiles_data) != VERTICAL_PROFILE_COUNT:
+        raise RuntimeError(
+            f"Expected {VERTICAL_PROFILE_COUNT} vertical L profiles; manifest contains {len(profiles_data)}."
+        )
+
+    component = document.addObject("App::Part", "VerticalLProfiles")
+    component.Label = "Staal - L profielen verticaal"
+    add_string_property(component, "SourceDXFLayer", manifest["source_layer"])
+    add_string_property(component, "SourceDXFFile", str(SOURCE_DXF))
+    add_string_property(component, "CoordinateSystem", "Shared global origin at floor point 1.")
+    add_float_property(component, "ProfileHeightMm", manifest["profile_height_mm"])
+    add_float_property(component, "ProfileCount", len(profiles_data))
+    assembly.addObject(component)
+
+    profiles = []
+    for index, profile_data in enumerate(profiles_data, start=1):
+        x_value, y_value = profile_data["global_xy_mm"]
+        base_z = floor_elevation(
+            x_value,
+            y_value,
+            outline["width_mm"],
+            outline["length_mm"],
+            outline["middle_level_row_mm"],
+        )
+        profile = document.addObject("Part::Feature", f"VerticalLProfile{index:02d}")
+        profile.Label = f"Vertical L profile {index:02d} ({profile_data['block']})"
+        profile.Shape = make_vertical_l_profile(profile_data, base_z, manifest["profile_height_mm"])
+        add_string_property(profile, "SourceDXFHandle", profile_data["handle"])
+        add_string_property(profile, "SourceDXFBlock", profile_data["block"])
+        add_float_property(profile, "BaseElevationMm", base_z)
+        add_float_property(profile, "HeightMm", manifest["profile_height_mm"])
+        if profile.ViewObject:
+            profile.ViewObject.ShapeColor = (0.30, 0.34, 0.38)
+            profile.ViewObject.LineColor = (0.08, 0.08, 0.08)
+        component.addObject(profile)
+        profiles.append(profile)
+    return component, profiles, manifest
+
+
 def add_wall(document, assembly, length_mm: float):
     wall_component = document.addObject("App::Part", "Wall")
     wall_component.Label = "Wall"
@@ -206,7 +292,7 @@ def add_wall(document, assembly, length_mm: float):
     return wall_component, wall
 
 
-def validate_model(tiles, wall, outline, x_coordinates, y_coordinates):
+def validate_model(tiles, profiles, wall, outline, x_coordinates, y_coordinates):
     if len(tiles) != TILE_COLUMNS * TILE_ROWS:
         raise RuntimeError(f"Expected {TILE_COLUMNS * TILE_ROWS} floor tiles; created {len(tiles)}.")
     for tile in tiles:
@@ -214,6 +300,13 @@ def validate_model(tiles, wall, outline, x_coordinates, y_coordinates):
             raise RuntimeError(f"{tile.Label} is not one valid solid.")
         if tile.Placement != FreeCAD.Placement():
             raise RuntimeError(f"{tile.Label} is not at the shared global origin.")
+    if len(profiles) != VERTICAL_PROFILE_COUNT:
+        raise RuntimeError(f"Expected {VERTICAL_PROFILE_COUNT} vertical L profiles; created {len(profiles)}.")
+    for profile in profiles:
+        if not profile.Shape.isValid() or len(profile.Shape.Solids) != 1:
+            raise RuntimeError(f"{profile.Label} is not one valid solid.")
+        if profile.Placement != FreeCAD.Placement():
+            raise RuntimeError(f"{profile.Label} is not at the shared global origin.")
     if not wall.Shape.isValid() or len(wall.Shape.Solids) != 1:
         raise RuntimeError("WallSolid is not one valid solid.")
 
@@ -245,7 +338,7 @@ def main() -> None:
     remove_imported_dxf(document)
 
     assembly = document.addObject("App::Part", "FloorWallAssembly")
-    assembly.Label = "Floor and wall assembly (shared global origin)"
+    assembly.Label = "Floor, wall, and vertical-profile assembly (shared global origin)"
     add_string_property(assembly, "CoordinateSystem", "Point 1 is FreeCAD (0, 0, 0); DXF centimetres are scaled to millimetres.")
     add_string_property(assembly, "SourceDXFFile", str(SOURCE_DXF))
     add_float_property(assembly, "DXFToMillimetreScale", 10.0)
@@ -262,17 +355,20 @@ def main() -> None:
     assembly.addObject(floor_component)
 
     tiles, x_coordinates, y_coordinates = add_floor_tiles(document, floor_component, outline)
+    vertical_profiles_component, profiles, profile_manifest = add_vertical_l_profiles(document, assembly, outline)
     wall_component, wall = add_wall(document, assembly, outline["length_mm"])
     document.recompute()
-    checks = validate_model(tiles, wall, outline, x_coordinates, y_coordinates)
+    checks = validate_model(tiles, profiles, wall, outline, x_coordinates, y_coordinates)
 
     document.saveAs(str(OUTPUT_FCSTD))
     assembly_step = OUTPUT_STEP_DIRECTORY / "Drawing1 - Test Zevekote_floor_wall_assembly.step"
     floor_step = OUTPUT_STEP_DIRECTORY / "Drawing1 - Test Zevekote_floor.step"
     wall_step = OUTPUT_STEP_DIRECTORY / "Drawing1 - Test Zevekote_wall.step"
-    Import.export(tiles + [wall], str(assembly_step))
+    profiles_step = OUTPUT_STEP_DIRECTORY / "Drawing1 - Test Zevekote_vertical_l_profiles.step"
+    Import.export(tiles + profiles + [wall], str(assembly_step))
     Import.export(tiles, str(floor_step))
     Import.export([wall], str(wall_step))
+    Import.export(profiles, str(profiles_step))
 
     report = {
         "source_dxf": str(SOURCE_DXF),
@@ -281,6 +377,7 @@ def main() -> None:
             "assembly": str(assembly_step),
             "floor": str(floor_step),
             "wall": str(wall_step),
+            "vertical_l_profiles": str(profiles_step),
         },
         "units": "mm",
         "dxf_units": "unitless; project instruction specifies centimetres",
@@ -305,6 +402,12 @@ def main() -> None:
             "thickness_mm": WALL_THICKNESS_MM,
             "height_mm": WALL_HEIGHT_MM,
             "floor_facing_plane": "X = 0 mm",
+        },
+        "vertical_l_profiles": {
+            "source_layer": profile_manifest["source_layer"],
+            "profile_count": len(profiles),
+            "profile_height_mm": profile_manifest["profile_height_mm"],
+            "profile_section_mm": profile_manifest["profile_section_mm"],
         },
     }
     OUTPUT_REPORT.write_text(json.dumps(report, indent=2), encoding="utf-8")
