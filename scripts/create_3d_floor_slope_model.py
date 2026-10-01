@@ -1,4 +1,4 @@
-"""Create a FreeCAD reference model from the supplied DXF."""
+"""Build the shared-origin Floor and Wall components from the Zevekote DXF."""
 
 from __future__ import annotations
 
@@ -11,194 +11,225 @@ import Part
 
 
 SOURCE_DXF = Path(r"D:\github\DXF2FREECAD2STEP\dxf\Drawing1 - Test Zevekote.dxf")
-OUTPUT_FCSTD = Path(
-    r"D:\github\DXF2FREECAD2STEP\fcstd\Drawing1 - Test Zevekote_3D_reference.FCStd"
-)
-OUTPUT_REPORT = OUTPUT_FCSTD.with_suffix(".floor-elevations.json")
+OUTPUT_FCSTD = Path(r"D:\github\DXF2FREECAD2STEP\fcstd\Drawing1 - Test Zevekote_floor_wall.FCStd")
+OUTPUT_REPORT = OUTPUT_FCSTD.with_suffix(".validation.json")
+OUTPUT_STEP_DIRECTORY = Path(r"D:\github\DXF2FREECAD2STEP\step")
 FLOOR_THICKNESS_MM = 250.0
+WALL_THICKNESS_MM = 250.0
+WALL_HEIGHT_MM = 3300.0
+MIDDLE_LEVEL_ROW_DXF_CM = 933.5357606862363
+MIDDLE_LEVEL_ROW_MM = 3468.0
+TILE_COLUMNS = 3
+TILE_ROWS = 7
 
 
-def add_string_property(obj, name: str, value: str) -> None:
-    obj.addProperty("App::PropertyString", name, "DXF traceability")
+def add_string_property(obj, name: str, value: str, group: str = "Traceability") -> None:
+    obj.addProperty("App::PropertyString", name, group)
     setattr(obj, name, value)
 
 
-def add_length_property(obj, name: str, value: float) -> None:
-    obj.addProperty("App::PropertyLength", name, "Floor elevations")
+def add_float_property(obj, name: str, value: float, group: str = "Geometry") -> None:
+    obj.addProperty("App::PropertyFloat", name, group)
     setattr(obj, name, value)
 
 
-def add_elevation_property(obj, name: str, value: float) -> None:
-    """Store signed elevations; FreeCAD's PropertyLength cannot be negative."""
-    obj.addProperty("App::PropertyFloat", name, "Floor elevations")
-    setattr(obj, name, value)
-
-
-def add_layer_components(document) -> int:
-    layer_groups = [
-        obj
-        for obj in document.Objects
-        if obj.Name.startswith("Layer") and hasattr(obj, "Group")
-    ]
-    for index, layer_group in enumerate(layer_groups, start=1):
-        layer_name = layer_group.Label
-        layer_group.Label = f"Imported DXF layer source: {layer_name}"
-        component = document.addObject("App::Part", f"DXFLayerComponent{index:03d}")
-        component.Label = layer_name
-        add_string_property(component, "SourceDXFLayer", layer_name)
-        add_string_property(component, "SourceDXFFile", str(SOURCE_DXF))
-        add_string_property(
-            component,
-            "ConversionNotes",
-            "Native DXF import; physical material and extrusion remain unresolved.",
-        )
-        for child in layer_group.Group:
-            component.addObject(child)
-        if layer_group.ViewObject:
-            layer_group.ViewObject.Visibility = False
-    return len(layer_groups)
-
-
-def floor_points():
-    return (
-        FreeCAD.Vector(285.6125547685916, 1274.535760686236, 0.0),
-        FreeCAD.Vector(579.361984557639, 1274.535760686236, -20.0),
-        FreeCAD.Vector(571.3619845576393, 933.5357606862363, -23.0),
-        FreeCAD.Vector(285.6125547685916, 933.5357606862363, 0.0),
-    )
-
-
-def floor_faces(points):
-    wall_corner, post_corner, post_middle, wall_middle = points
-    return [
-        Part.Face(Part.makePolygon([wall_corner, post_corner, post_middle, wall_corner])),
-        Part.Face(Part.makePolygon([wall_corner, post_middle, wall_middle, wall_corner])),
-    ]
-
-
-def add_floor_slope_reference(document):
-    reference = document.addObject("App::Part", "FloorElevationReference")
-    reference.Label = "Floor elevation reference (wall to posts)"
-    add_string_property(reference, "SourceDXFLayer", "Dimension / Staal - kolommen")
-    add_string_property(reference, "SourceDXFFile", str(SOURCE_DXF))
-    add_string_property(
-        reference,
-        "ConversionNotes",
-        "Measured DXF notes: wall baseline 0 mm; corner post -20 mm; "
-        "middle post -23 mm. Two faces interpolate between these "
-        "documented elevations.",
-    )
-
-    points = floor_points()
-    wall_corner, post_corner, post_middle, wall_middle = points
-
-    floor_surface = document.addObject("Part::Feature", "SlopedFloorSurface")
-    floor_surface.Label = "Sloped floor reference surface (0 / -20 / -23 mm)"
-    floor_surface.Shape = Part.makeCompound(floor_faces(points))
-    floor_surface.addProperty("App::PropertyString", "Role", "Floor elevations")
-    floor_surface.Role = "Reference surface; the floor solid is created separately."
-    add_elevation_property(floor_surface, "WallElevationMm", 0.0)
-    add_elevation_property(floor_surface, "CornerPostElevationMm", -20.0)
-    add_elevation_property(floor_surface, "MiddlePostElevationMm", -23.0)
-    if floor_surface.ViewObject:
-        floor_surface.ViewObject.ShapeColor = (0.30, 0.65, 1.00)
-        floor_surface.ViewObject.Transparency = 55
-    reference.addObject(floor_surface)
-
-    slope_lines = document.addObject("Part::Feature", "DocumentedFloorFalls")
-    slope_lines.Label = "Documented wall-to-post floor falls"
-    slope_lines.Shape = Part.makeCompound(
-        [
-            Part.makeLine(wall_corner, post_corner),
-            Part.makeLine(wall_middle, post_middle),
-        ]
-    )
-    add_length_property(slope_lines, "CornerPostFall", 20.0)
-    add_length_property(slope_lines, "MiddlePostFall", 23.0)
-    if slope_lines.ViewObject:
-        slope_lines.ViewObject.LineColor = (1.00, 0.25, 0.00)
-        slope_lines.ViewObject.LineWidth = 4.0
-    reference.addObject(slope_lines)
-
-    return points, {
-        "wall_baseline_mm": 0.0,
-        "corner_post_floor_elevation_mm": -20.0,
-        "middle_post_floor_elevation_mm": -23.0,
-        "corner_fall_mm": 20.0,
-        "middle_fall_mm": 23.0,
-        "wall_to_corner_post_run_mm": wall_corner.distanceToPoint(post_corner),
-        "wall_to_middle_post_run_mm": wall_middle.distanceToPoint(post_middle),
-        "surface_interpolation": (
-            "Piecewise-linear interpolation between documented wall baseline and "
-            "the two documented post elevations."
+def extract_floor_outline(document):
+    layer = next(
+        (
+            obj
+            for obj in document.Objects
+            if obj.Name.startswith("Layer")
+            and getattr(obj, "Label", "") == "Dakrand"
+            and hasattr(obj, "Group")
         ),
-    }
-
-
-def add_floor_solid(document, reference, points):
-    floor_solid = document.addObject("Part::Feature", "SlopedFloorSolid")
-    floor_solid.Label = "Sloped floor solid (250 mm thick)"
-    floor_solid.Shape = Part.makeCompound(
-        [face.extrude(FreeCAD.Vector(0.0, 0.0, -FLOOR_THICKNESS_MM)) for face in floor_faces(points)]
+        None,
     )
-    floor_solid.addProperty("App::PropertyString", "Role", "Floor elevations")
-    floor_solid.Role = (
-        "Two floor wedges extruded vertically 250 mm below the documented top-floor elevations."
-    )
-    add_length_property(floor_solid, "Thickness", FLOOR_THICKNESS_MM)
-    if floor_solid.ViewObject:
-        floor_solid.ViewObject.ShapeColor = (0.65, 0.65, 0.70)
-        floor_solid.ViewObject.Transparency = 15
-    reference.addObject(floor_solid)
+    if layer is None:
+        raise RuntimeError("The DXF does not contain the required Dakrand layer.")
 
-    preview = document.addObject("Part::Feature", "FloorSolidPreview")
-    preview.Label = "Floor solid preview (250 mm thick)"
-    preview.Shape = floor_solid.Shape
-    preview.addProperty("App::PropertyString", "Role", "Floor elevations")
-    preview.Role = "Root-level display copy of SlopedFloorSolid."
-    if preview.ViewObject:
-        preview.ViewObject.ShapeColor = (0.65, 0.65, 0.70)
-        preview.ViewObject.Transparency = 15
-    return {
-        "thickness_mm": FLOOR_THICKNESS_MM,
-        "solid_count": len(floor_solid.Shape.Solids),
-        "volume_mm3": floor_solid.Shape.Volume,
-    }
-
-
-def place_columns_on_floor(document):
-    component = next(
-        obj
-        for obj in document.Objects
-        if obj.TypeId == "App::Part"
-        and getattr(obj, "SourceDXFLayer", "") == "Staal - kolommen"
-    )
-    placements = {
-        "Hoekkolom plan": -20.0,
-        "Middelkolom plan": -23.0,
-    }
-    placed = []
-    for child in component.Group:
-        if child.Label not in placements:
+    edges = []
+    for child in layer.Group:
+        shape = getattr(child, "Shape", None)
+        if shape is None or shape.isNull():
             continue
-        placement = child.Placement
-        placement.Base.z = placements[child.Label]
-        child.Placement = placement
-        add_elevation_property(child, "FloorElevationMm", placements[child.Label])
-        placed.append(
-            {
-                "object": child.Name,
-                "label": child.Label,
-                "elevation_mm": placements[child.Label],
-            }
-        )
-    add_string_property(
-        component,
-        "FloorPlacementNotes",
-        "Corner and middle plan-view post instances are placed at their documented "
-        "floor elevations. Four unlocated section-detail strokes remain at source Z=0.",
+        for edge in shape.Edges:
+            vertices = edge.Vertexes
+            if len(vertices) == 2:
+                edges.append((vertices[0].Point, vertices[1].Point))
+
+    vertical = [
+        (first, second)
+        for first, second in edges
+        if abs(first.x - second.x) < 0.001 and abs(first.y - second.y) > 600.0
+    ]
+    if not vertical:
+        raise RuntimeError("Dakrand does not contain the required long outer floor edge.")
+    right_start, right_end = max(vertical, key=lambda edge: abs(edge[0].y - edge[1].y))
+    outer_x = right_start.x
+    bottom_y, top_y = sorted((right_start.y, right_end.y))
+
+    horizontal = [
+        (first, second)
+        for first, second in edges
+        if abs(first.y - second.y) < 0.001 and abs(first.x - second.x) > 250.0
+    ]
+
+    wall_x_values = []
+    for first, second in horizontal:
+        if abs(first.y - top_y) < 0.01 or abs(first.y - bottom_y) < 0.01:
+            if abs(first.x - outer_x) < 0.01:
+                wall_x_values.append(second.x)
+            elif abs(second.x - outer_x) < 0.01:
+                wall_x_values.append(first.x)
+    if len(wall_x_values) < 2:
+        raise RuntimeError("Dakrand does not define both wall-side floor corners.")
+    wall_x = sum(wall_x_values) / len(wall_x_values)
+
+    return {
+        "datum_dxf_cm": (wall_x, top_y),
+        "width_mm": (outer_x - wall_x) * 10.0,
+        "length_mm": (top_y - bottom_y) * 10.0,
+        "middle_level_row_mm": (top_y - MIDDLE_LEVEL_ROW_DXF_CM) * 10.0,
+    }
+
+
+def remove_imported_dxf(document) -> None:
+    for obj in list(document.Objects):
+        document.removeObject(obj.Name)
+    document.recompute()
+
+
+def quadratic_value(y_value: float, samples):
+    value = 0.0
+    for index, (sample_y, sample_z) in enumerate(samples):
+        basis = 1.0
+        for other_index, (other_y, _) in enumerate(samples):
+            if index != other_index:
+                basis *= (y_value - other_y) / (sample_y - other_y)
+        value += sample_z * basis
+    return value
+
+
+def floor_elevation(x_value: float, y_value: float, width_mm: float, length_mm: float, middle_y: float) -> float:
+    left_samples = ((0.0, 0.0), (middle_y, -9.5), (length_mm, -19.0))
+    right_samples = ((0.0, -20.0), (middle_y, -23.0), (length_mm, -26.0))
+    left_z = quadratic_value(y_value, left_samples)
+    right_z = quadratic_value(y_value, right_samples)
+    return left_z + (right_z - left_z) * (x_value / width_mm)
+
+
+def make_face(points):
+    return Part.Face(Part.makePolygon(points + [points[0]]))
+
+
+def make_tile_solid(top_left, top_right, bottom_right, bottom_left):
+    bottom_left_point = FreeCAD.Vector(top_left.x, top_left.y, top_left.z - FLOOR_THICKNESS_MM)
+    bottom_right_point = FreeCAD.Vector(top_right.x, top_right.y, top_right.z - FLOOR_THICKNESS_MM)
+    bottom_bottom_right = FreeCAD.Vector(bottom_right.x, bottom_right.y, bottom_right.z - FLOOR_THICKNESS_MM)
+    bottom_bottom_left = FreeCAD.Vector(bottom_left.x, bottom_left.y, bottom_left.z - FLOOR_THICKNESS_MM)
+
+    faces = [
+        make_face([top_left, top_right, bottom_right]),
+        make_face([top_left, bottom_right, bottom_left]),
+        make_face([bottom_left_point, bottom_bottom_right, bottom_right_point]),
+        make_face([bottom_left_point, bottom_bottom_left, bottom_bottom_right]),
+        make_face([top_left, bottom_left_point, bottom_right_point, top_right]),
+        make_face([top_right, bottom_right_point, bottom_bottom_right, bottom_right]),
+        make_face([bottom_right, bottom_bottom_right, bottom_bottom_left, bottom_left]),
+        make_face([bottom_left, bottom_bottom_left, bottom_left_point, top_left]),
+    ]
+    return Part.makeSolid(Part.makeShell(faces))
+
+
+def add_floor_tiles(document, floor_component, outline):
+    width_mm = outline["width_mm"]
+    length_mm = outline["length_mm"]
+    middle_y = outline["middle_level_row_mm"]
+    x_coordinates = [0.0, 1000.0, 2000.0, width_mm]
+    y_coordinates = [0.0, 1000.0, 2000.0, 3000.0, middle_y, middle_y + 1000.0, middle_y + 2000.0, length_mm]
+
+    if len(x_coordinates) - 1 != TILE_COLUMNS or len(y_coordinates) - 1 != TILE_ROWS:
+        raise RuntimeError("The configured tile grid is not 3 columns by 7 rows.")
+    if not all(first < second for first, second in zip(x_coordinates, x_coordinates[1:])):
+        raise RuntimeError("Floor tile X coordinates are not strictly increasing.")
+    if not all(first < second for first, second in zip(y_coordinates, y_coordinates[1:])):
+        raise RuntimeError("Floor tile Y coordinates are not strictly increasing.")
+
+    tiles = []
+    for row_index, (top_y, bottom_y) in enumerate(zip(y_coordinates, y_coordinates[1:]), start=1):
+        for column_index, (left_x, right_x) in enumerate(zip(x_coordinates, x_coordinates[1:]), start=1):
+            top_left = FreeCAD.Vector(left_x, top_y, floor_elevation(left_x, top_y, width_mm, length_mm, middle_y))
+            top_right = FreeCAD.Vector(right_x, top_y, floor_elevation(right_x, top_y, width_mm, length_mm, middle_y))
+            bottom_right = FreeCAD.Vector(right_x, bottom_y, floor_elevation(right_x, bottom_y, width_mm, length_mm, middle_y))
+            bottom_left = FreeCAD.Vector(left_x, bottom_y, floor_elevation(left_x, bottom_y, width_mm, length_mm, middle_y))
+            tile = document.addObject("Part::Feature", f"FloorTile{row_index:02d}{column_index:02d}")
+            tile.Label = f"Concrete cut tile R{row_index} C{column_index}"
+            tile.Shape = make_tile_solid(top_left, top_right, bottom_right, bottom_left)
+            add_float_property(tile, "Row", row_index, "Tile grid")
+            add_float_property(tile, "Column", column_index, "Tile grid")
+            add_float_property(tile, "TopLeftZ", top_left.z, "Tile elevations")
+            add_float_property(tile, "TopRightZ", top_right.z, "Tile elevations")
+            add_float_property(tile, "BottomRightZ", bottom_right.z, "Tile elevations")
+            add_float_property(tile, "BottomLeftZ", bottom_left.z, "Tile elevations")
+            add_float_property(tile, "ThicknessMm", FLOOR_THICKNESS_MM, "Tile elevations")
+            if tile.ViewObject:
+                tile.ViewObject.ShapeColor = (0.68, 0.70, 0.72)
+                tile.ViewObject.LineColor = (0.15, 0.15, 0.15)
+                tile.ViewObject.LineWidth = 1.5
+            floor_component.addObject(tile)
+            tiles.append(tile)
+    return tiles, x_coordinates, y_coordinates
+
+
+def add_wall(document, assembly, length_mm: float):
+    wall_component = document.addObject("App::Part", "Wall")
+    wall_component.Label = "Wall"
+    add_string_property(wall_component, "SourceDXFLayer", "Bestaande ruwbouw")
+    add_string_property(wall_component, "SourceDXFFile", str(SOURCE_DXF))
+    add_string_property(wall_component, "CoordinateSystem", "Shared global origin at floor point 1.")
+    assembly.addObject(wall_component)
+
+    wall = document.addObject("Part::Feature", "WallSolid")
+    wall.Label = "Existing rough-construction wall (250 mm x 3300 mm)"
+    wall.Shape = Part.makeBox(
+        WALL_THICKNESS_MM,
+        length_mm,
+        WALL_HEIGHT_MM,
+        FreeCAD.Vector(-WALL_THICKNESS_MM, 0.0, 0.0),
     )
-    return placed
+    add_float_property(wall, "ThicknessMm", WALL_THICKNESS_MM)
+    add_float_property(wall, "HeightMm", WALL_HEIGHT_MM)
+    if wall.ViewObject:
+        wall.ViewObject.ShapeColor = (0.80, 0.72, 0.57)
+        wall.ViewObject.LineColor = (0.25, 0.20, 0.15)
+    wall_component.addObject(wall)
+    return wall_component, wall
+
+
+def validate_model(tiles, wall, outline, x_coordinates, y_coordinates):
+    if len(tiles) != TILE_COLUMNS * TILE_ROWS:
+        raise RuntimeError(f"Expected {TILE_COLUMNS * TILE_ROWS} floor tiles; created {len(tiles)}.")
+    for tile in tiles:
+        if not tile.Shape.isValid() or len(tile.Shape.Solids) != 1:
+            raise RuntimeError(f"{tile.Label} is not one valid solid.")
+        if tile.Placement != FreeCAD.Placement():
+            raise RuntimeError(f"{tile.Label} is not at the shared global origin.")
+    if not wall.Shape.isValid() or len(wall.Shape.Solids) != 1:
+        raise RuntimeError("WallSolid is not one valid solid.")
+
+    measurement_checks = {
+        "point_1": floor_elevation(0.0, 0.0, outline["width_mm"], outline["length_mm"], outline["middle_level_row_mm"]),
+        "point_2": floor_elevation(outline["width_mm"], 0.0, outline["width_mm"], outline["length_mm"], outline["middle_level_row_mm"]),
+        "point_3": floor_elevation(0.0, outline["middle_level_row_mm"], outline["width_mm"], outline["length_mm"], outline["middle_level_row_mm"]),
+        "point_4": floor_elevation(outline["width_mm"], outline["middle_level_row_mm"], outline["width_mm"], outline["length_mm"], outline["middle_level_row_mm"]),
+        "point_5": floor_elevation(0.0, outline["length_mm"], outline["width_mm"], outline["length_mm"], outline["middle_level_row_mm"]),
+        "point_6": floor_elevation(outline["width_mm"], outline["length_mm"], outline["width_mm"], outline["length_mm"], outline["middle_level_row_mm"]),
+    }
+    expected_levels = {"point_1": 0.0, "point_2": -20.0, "point_3": -9.5, "point_4": -23.0, "point_5": -19.0, "point_6": -26.0}
+    for name, expected in expected_levels.items():
+        if abs(measurement_checks[name] - expected) > 0.000001:
+            raise RuntimeError(f"{name} is {measurement_checks[name]} mm, expected {expected} mm.")
+    return measurement_checks
 
 
 def main() -> None:
@@ -206,41 +237,75 @@ def main() -> None:
         raise FileNotFoundError(f"DXF source does not exist: {SOURCE_DXF}")
 
     OUTPUT_FCSTD.parent.mkdir(parents=True, exist_ok=True)
-    document = FreeCAD.newDocument("Drawing1_Test_Zevekote_3D_reference")
-    import_stats = Import.readDXF(str(SOURCE_DXF))
+    OUTPUT_STEP_DIRECTORY.mkdir(parents=True, exist_ok=True)
+    document = FreeCAD.newDocument("Drawing1_Test_Zevekote_Floor_Wall")
+    Import.readDXF(str(SOURCE_DXF))
     document.recompute()
+    outline = extract_floor_outline(document)
+    remove_imported_dxf(document)
 
-    layer_components = add_layer_components(document)
-    points, elevations = add_floor_slope_reference(document)
-    floor_solid = add_floor_solid(document, document.getObject("FloorElevationReference"), points)
-    placed_columns = place_columns_on_floor(document)
+    assembly = document.addObject("App::Part", "FloorWallAssembly")
+    assembly.Label = "Floor and wall assembly (shared global origin)"
+    add_string_property(assembly, "CoordinateSystem", "Point 1 is FreeCAD (0, 0, 0); DXF centimetres are scaled to millimetres.")
+    add_string_property(assembly, "SourceDXFFile", str(SOURCE_DXF))
+    add_float_property(assembly, "DXFToMillimetreScale", 10.0)
+    add_float_property(assembly, "FloorWidthMm", outline["width_mm"])
+    add_float_property(assembly, "FloorLengthMm", outline["length_mm"])
+
+    floor_component = document.addObject("App::Part", "Floor")
+    floor_component.Label = "Floor"
+    add_string_property(floor_component, "SourceDXFLayer", "Dakrand")
+    add_string_property(floor_component, "SourceDXFFile", str(SOURCE_DXF))
+    add_string_property(floor_component, "CoordinateSystem", "Shared global origin at floor point 1.")
+    add_string_property(floor_component, "MeshMethod", "21 concrete-cut tiles, each split into two top-surface triangles.")
+    add_float_property(floor_component, "ThicknessMm", FLOOR_THICKNESS_MM)
+    assembly.addObject(floor_component)
+
+    tiles, x_coordinates, y_coordinates = add_floor_tiles(document, floor_component, outline)
+    wall_component, wall = add_wall(document, assembly, outline["length_mm"])
     document.recompute()
-
-    floor_surface = document.getObject("SlopedFloorSurface")
-    if not floor_surface.Shape.isValid():
-        raise RuntimeError("The generated sloped floor reference surface is invalid.")
-    if not document.getObject("SlopedFloorSolid").Shape.isValid():
-        raise RuntimeError("The generated sloped floor solid is invalid.")
+    checks = validate_model(tiles, wall, outline, x_coordinates, y_coordinates)
 
     document.saveAs(str(OUTPUT_FCSTD))
+    assembly_step = OUTPUT_STEP_DIRECTORY / "Drawing1 - Test Zevekote_floor_wall_assembly.step"
+    floor_step = OUTPUT_STEP_DIRECTORY / "Drawing1 - Test Zevekote_floor.step"
+    wall_step = OUTPUT_STEP_DIRECTORY / "Drawing1 - Test Zevekote_wall.step"
+    Import.export(tiles + [wall], str(assembly_step))
+    Import.export(tiles, str(floor_step))
+    Import.export([wall], str(wall_step))
+
     report = {
         "source_dxf": str(SOURCE_DXF),
         "output_fcstd": str(OUTPUT_FCSTD),
+        "output_step": {
+            "assembly": str(assembly_step),
+            "floor": str(floor_step),
+            "wall": str(wall_step),
+        },
         "units": "mm",
-        "dxf_import": import_stats,
-        "layer_components_created": layer_components,
-        "floor_elevations": elevations,
-        "floor_solid": floor_solid,
-        "column_floor_placements": placed_columns,
-        "limitations": [
-            "DXF outlines are imported as source geometry; no unsupported "
-            "extrusion thickness is invented.",
-            "The 250 mm floor solid is derived from the documented top-floor "
-            "elevations and extruded vertically downward.",
-            "Only the two identifiable plan-view column instances are placed "
-            "on the floor; unmapped detail strokes remain at source Z=0.",
-            "Physical material mapping remains unresolved.",
-        ],
+        "dxf_units": "unitless; project instruction specifies centimetres",
+        "dxf_to_mm_scale": 10.0,
+        "datum": {
+            "source_dxf_cm": outline["datum_dxf_cm"],
+            "freecad_mm": [0.0, 0.0, 0.0],
+            "point": "1",
+        },
+        "floor": {
+            "source_layer": "Dakrand",
+            "width_mm": outline["width_mm"],
+            "length_mm": outline["length_mm"],
+            "thickness_mm": FLOOR_THICKNESS_MM,
+            "tile_count": len(tiles),
+            "x_coordinates_mm": x_coordinates,
+            "y_coordinates_mm": y_coordinates,
+            "measured_elevations_mm": checks,
+        },
+        "wall": {
+            "source_layer": "Bestaande ruwbouw",
+            "thickness_mm": WALL_THICKNESS_MM,
+            "height_mm": WALL_HEIGHT_MM,
+            "floor_facing_plane": "X = 0 mm",
+        },
     }
     OUTPUT_REPORT.write_text(json.dumps(report, indent=2), encoding="utf-8")
     FreeCAD.closeDocument(document.Name)

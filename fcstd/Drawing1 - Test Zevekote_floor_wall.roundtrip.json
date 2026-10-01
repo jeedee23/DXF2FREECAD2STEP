@@ -1,0 +1,25 @@
+{
+  "fcstd": "D:\\github\\DXF2FREECAD2STEP\\fcstd\\Drawing1 - Test Zevekote_floor_wall.FCStd",
+  "step": "D:\\github\\DXF2FREECAD2STEP\\step\\Drawing1 - Test Zevekote_floor_wall_assembly.step",
+  "tile_count": 21,
+  "source_solid_count": 22,
+  "imported_solid_count": 22,
+  "source_bounds_mm": {
+    "xmin": -250.0,
+    "xmax": 2995.494297890475,
+    "ymin": -1.1368683772161603e-13,
+    "ymax": 6446.219632054161,
+    "zmin": -276.0,
+    "zmax": 3300.0
+  },
+  "imported_bounds_mm": {
+    "xmin": -250.0,
+    "xmax": 2995.4942978907216,
+    "ymin": -2.2737367544323206e-13,
+    "ymax": 6446.219632054212,
+    "zmin": -276.0,
+    "zmax": 3300.0
+  },
+  "tolerance_mm": 0.01,
+  "result": "PASS"
+}
