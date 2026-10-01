@@ -8,7 +8,7 @@
     "scalingSource": "$INSUNITS",
     "fileUnits": "Millimeters",
     "finalScalingFactor": 1.0,
-    "importTimeSeconds": 1.9040387,
+    "importTimeSeconds": 1.9039402,
     "totalEntitiesCreated": 927,
     "entityCounts": {
       "ARC": 16,
@@ -75,9 +75,27 @@
     "wall_to_middle_post_run_mm": 286.67357154918534,
     "surface_interpolation": "Piecewise-linear interpolation between documented wall baseline and the two documented post elevations."
   },
+  "floor_solid": {
+    "thickness_mm": 250.0,
+    "solid_count": 2,
+    "volume_mm3": 24701138.88951628
+  },
+  "column_floor_placements": [
+    {
+      "object": "Link_Hoekkolom_plan",
+      "label": "Hoekkolom plan",
+      "elevation_mm": -20.0
+    },
+    {
+      "object": "Link_Middelkolom_plan",
+      "label": "Middelkolom plan",
+      "elevation_mm": -23.0
+    }
+  ],
   "limitations": [
     "DXF outlines are imported as source geometry; no unsupported extrusion thickness is invented.",
-    "The sloped floor is a 3D reference surface because the DXF does not specify the floor slab thickness.",
+    "The 250 mm floor solid is derived from the documented top-floor elevations and extruded vertically downward.",
+    "Only the two identifiable plan-view column instances are placed on the floor; unmapped detail strokes remain at source Z=0.",
     "Physical material mapping remains unresolved."
   ]
 }

@@ -1,8 +1,4 @@
-"""Create a FreeCAD reference model from the supplied DXF.
-
-The DXF is never modified. Native DXF geometry is imported by FreeCAD, and
-the documented floor elevations are added as traceable 3D reference geometry.
-"""
+"""Create a FreeCAD reference model from the supplied DXF."""
 
 from __future__ import annotations
 
@@ -19,6 +15,7 @@ OUTPUT_FCSTD = Path(
     r"D:\github\DXF2FREECAD2STEP\fcstd\Drawing1 - Test Zevekote_3D_reference.FCStd"
 )
 OUTPUT_REPORT = OUTPUT_FCSTD.with_suffix(".floor-elevations.json")
+FLOOR_THICKNESS_MM = 250.0
 
 
 def add_string_property(obj, name: str, value: str) -> None:
@@ -44,9 +41,11 @@ def add_layer_components(document) -> int:
         if obj.Name.startswith("Layer") and hasattr(obj, "Group")
     ]
     for index, layer_group in enumerate(layer_groups, start=1):
+        layer_name = layer_group.Label
+        layer_group.Label = f"Imported DXF layer source: {layer_name}"
         component = document.addObject("App::Part", f"DXFLayerComponent{index:03d}")
-        component.Label = layer_group.Label
-        add_string_property(component, "SourceDXFLayer", layer_group.Label)
+        component.Label = layer_name
+        add_string_property(component, "SourceDXFLayer", layer_name)
         add_string_property(component, "SourceDXFFile", str(SOURCE_DXF))
         add_string_property(
             component,
@@ -60,6 +59,23 @@ def add_layer_components(document) -> int:
     return len(layer_groups)
 
 
+def floor_points():
+    return (
+        FreeCAD.Vector(285.6125547685916, 1274.535760686236, 0.0),
+        FreeCAD.Vector(579.361984557639, 1274.535760686236, -20.0),
+        FreeCAD.Vector(571.3619845576393, 933.5357606862363, -23.0),
+        FreeCAD.Vector(285.6125547685916, 933.5357606862363, 0.0),
+    )
+
+
+def floor_faces(points):
+    wall_corner, post_corner, post_middle, wall_middle = points
+    return [
+        Part.Face(Part.makePolygon([wall_corner, post_corner, post_middle, wall_corner])),
+        Part.Face(Part.makePolygon([wall_corner, post_middle, wall_middle, wall_corner])),
+    ]
+
+
 def add_floor_slope_reference(document):
     reference = document.addObject("App::Part", "FloorElevationReference")
     reference.Label = "Floor elevation reference (wall to posts)"
@@ -70,29 +86,17 @@ def add_floor_slope_reference(document):
         "ConversionNotes",
         "Measured DXF notes: wall baseline 0 mm; corner post -20 mm; "
         "middle post -23 mm. Two faces interpolate between these "
-        "documented elevations and is a reference surface, not a slab solid.",
+        "documented elevations.",
     )
 
-    # Coordinates originate from the floor-profile and post INSERT placements.
-    wall_corner = FreeCAD.Vector(285.6125547685916, 1274.535760686236, 0.0)
-    post_corner = FreeCAD.Vector(579.361984557639, 1274.535760686236, -20.0)
-    post_middle = FreeCAD.Vector(571.3619845576393, 933.5357606862363, -23.0)
-    wall_middle = FreeCAD.Vector(285.6125547685916, 933.5357606862363, 0.0)
+    points = floor_points()
+    wall_corner, post_corner, post_middle, wall_middle = points
 
     floor_surface = document.addObject("Part::Feature", "SlopedFloorSurface")
     floor_surface.Label = "Sloped floor reference surface (0 / -20 / -23 mm)"
-    floor_surface.Shape = Part.makeCompound(
-        [
-            Part.Face(
-                Part.makePolygon([wall_corner, post_corner, post_middle, wall_corner])
-            ),
-            Part.Face(
-                Part.makePolygon([wall_corner, post_middle, wall_middle, wall_corner])
-            ),
-        ]
-    )
+    floor_surface.Shape = Part.makeCompound(floor_faces(points))
     floor_surface.addProperty("App::PropertyString", "Role", "Floor elevations")
-    floor_surface.Role = "Reference face only; no slab thickness is defined by the DXF."
+    floor_surface.Role = "Reference surface; the floor solid is created separately."
     add_elevation_property(floor_surface, "WallElevationMm", 0.0)
     add_elevation_property(floor_surface, "CornerPostElevationMm", -20.0)
     add_elevation_property(floor_surface, "MiddlePostElevationMm", -23.0)
@@ -116,7 +120,7 @@ def add_floor_slope_reference(document):
         slope_lines.ViewObject.LineWidth = 4.0
     reference.addObject(slope_lines)
 
-    return {
+    return points, {
         "wall_baseline_mm": 0.0,
         "corner_post_floor_elevation_mm": -20.0,
         "middle_post_floor_elevation_mm": -23.0,
@@ -125,10 +129,76 @@ def add_floor_slope_reference(document):
         "wall_to_corner_post_run_mm": wall_corner.distanceToPoint(post_corner),
         "wall_to_middle_post_run_mm": wall_middle.distanceToPoint(post_middle),
         "surface_interpolation": (
-            "Piecewise-linear interpolation between documented wall baseline and the "
-            "two documented post elevations."
+            "Piecewise-linear interpolation between documented wall baseline and "
+            "the two documented post elevations."
         ),
     }
+
+
+def add_floor_solid(document, reference, points):
+    floor_solid = document.addObject("Part::Feature", "SlopedFloorSolid")
+    floor_solid.Label = "Sloped floor solid (250 mm thick)"
+    floor_solid.Shape = Part.makeCompound(
+        [face.extrude(FreeCAD.Vector(0.0, 0.0, -FLOOR_THICKNESS_MM)) for face in floor_faces(points)]
+    )
+    floor_solid.addProperty("App::PropertyString", "Role", "Floor elevations")
+    floor_solid.Role = (
+        "Two floor wedges extruded vertically 250 mm below the documented top-floor elevations."
+    )
+    add_length_property(floor_solid, "Thickness", FLOOR_THICKNESS_MM)
+    if floor_solid.ViewObject:
+        floor_solid.ViewObject.ShapeColor = (0.65, 0.65, 0.70)
+        floor_solid.ViewObject.Transparency = 15
+    reference.addObject(floor_solid)
+
+    preview = document.addObject("Part::Feature", "FloorSolidPreview")
+    preview.Label = "Floor solid preview (250 mm thick)"
+    preview.Shape = floor_solid.Shape
+    preview.addProperty("App::PropertyString", "Role", "Floor elevations")
+    preview.Role = "Root-level display copy of SlopedFloorSolid."
+    if preview.ViewObject:
+        preview.ViewObject.ShapeColor = (0.65, 0.65, 0.70)
+        preview.ViewObject.Transparency = 15
+    return {
+        "thickness_mm": FLOOR_THICKNESS_MM,
+        "solid_count": len(floor_solid.Shape.Solids),
+        "volume_mm3": floor_solid.Shape.Volume,
+    }
+
+
+def place_columns_on_floor(document):
+    component = next(
+        obj
+        for obj in document.Objects
+        if obj.TypeId == "App::Part"
+        and getattr(obj, "SourceDXFLayer", "") == "Staal - kolommen"
+    )
+    placements = {
+        "Hoekkolom plan": -20.0,
+        "Middelkolom plan": -23.0,
+    }
+    placed = []
+    for child in component.Group:
+        if child.Label not in placements:
+            continue
+        placement = child.Placement
+        placement.Base.z = placements[child.Label]
+        child.Placement = placement
+        add_elevation_property(child, "FloorElevationMm", placements[child.Label])
+        placed.append(
+            {
+                "object": child.Name,
+                "label": child.Label,
+                "elevation_mm": placements[child.Label],
+            }
+        )
+    add_string_property(
+        component,
+        "FloorPlacementNotes",
+        "Corner and middle plan-view post instances are placed at their documented "
+        "floor elevations. Four unlocated section-detail strokes remain at source Z=0.",
+    )
+    return placed
 
 
 def main() -> None:
@@ -141,12 +211,16 @@ def main() -> None:
     document.recompute()
 
     layer_components = add_layer_components(document)
-    elevations = add_floor_slope_reference(document)
+    points, elevations = add_floor_slope_reference(document)
+    floor_solid = add_floor_solid(document, document.getObject("FloorElevationReference"), points)
+    placed_columns = place_columns_on_floor(document)
     document.recompute()
 
     floor_surface = document.getObject("SlopedFloorSurface")
     if not floor_surface.Shape.isValid():
         raise RuntimeError("The generated sloped floor reference surface is invalid.")
+    if not document.getObject("SlopedFloorSolid").Shape.isValid():
+        raise RuntimeError("The generated sloped floor solid is invalid.")
 
     document.saveAs(str(OUTPUT_FCSTD))
     report = {
@@ -156,11 +230,15 @@ def main() -> None:
         "dxf_import": import_stats,
         "layer_components_created": layer_components,
         "floor_elevations": elevations,
+        "floor_solid": floor_solid,
+        "column_floor_placements": placed_columns,
         "limitations": [
             "DXF outlines are imported as source geometry; no unsupported "
             "extrusion thickness is invented.",
-            "The sloped floor is a 3D reference surface because the DXF does "
-            "not specify the floor slab thickness.",
+            "The 250 mm floor solid is derived from the documented top-floor "
+            "elevations and extruded vertically downward.",
+            "Only the two identifiable plan-view column instances are placed "
+            "on the floor; unmapped detail strokes remain at source Z=0.",
             "Physical material mapping remains unresolved.",
         ],
     }
