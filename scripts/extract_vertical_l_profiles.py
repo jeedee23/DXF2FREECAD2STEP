@@ -94,12 +94,12 @@ def extract_profiles(document, outline):
                 "insert_dxf_cm": [insert.x, insert.y, insert.z],
                 "rotation_degrees": entity.dxf.rotation,
                 "global_xy_mm": [
-                    (insert.x - outline["wall_x_cm"]) * 10.0,
+                    (outline["outer_x_cm"] - insert.x) * 10.0,
                     (outline["top_y_cm"] - insert.y) * 10.0,
                 ],
             }
         )
-    profiles.sort(key=lambda profile: (profile["global_xy_mm"][1], profile["global_xy_mm"][0]))
+    profiles.sort(key=lambda profile: (profile["global_xy_mm"][0], profile["global_xy_mm"][1]))
     if len(profiles) != EXPECTED_PROFILE_COUNT:
         raise RuntimeError(
             f"Expected {EXPECTED_PROFILE_COUNT} in-footprint vertical L profiles; found {len(profiles)}."
@@ -123,7 +123,7 @@ def main() -> None:
                 "source_units": "cm",
                 "freecad_units": "mm",
                 "dxf_to_mm_scale": 10.0,
-                "datum_dxf_cm": [outline["wall_x_cm"], outline["top_y_cm"]],
+                "datum_dxf_cm": [outline["outer_x_cm"], outline["top_y_cm"]],
                 "source_layer": PROFILE_LAYER,
                 "profile_height_mm": profile_height_mm(document),
                 "profile_section_mm": {

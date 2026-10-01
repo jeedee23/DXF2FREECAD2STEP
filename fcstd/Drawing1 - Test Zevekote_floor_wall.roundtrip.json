@@ -3,21 +3,35 @@
   "step": "D:\\github\\DXF2FREECAD2STEP\\step\\Drawing1 - Test Zevekote_floor_wall_assembly.step",
   "tile_count": 21,
   "vertical_profile_count": 15,
-  "source_solid_count": 37,
-  "imported_solid_count": 37,
+  "origin_marker": {
+    "x_range_mm": [
+      0.0,
+      100.0
+    ],
+    "y_range_mm": [
+      -200.0,
+      0.0
+    ],
+    "z_range_mm": [
+      0.0,
+      100.0
+    ]
+  },
+  "source_solid_count": 38,
+  "imported_solid_count": 38,
   "source_bounds_mm": {
-    "xmin": -250.0,
-    "xmax": 2995.494297890475,
-    "ymin": -1.1368683772161603e-13,
+    "xmin": -1.1368683772161603e-13,
+    "xmax": 3245.494297890475,
+    "ymin": -200.0,
     "ymax": 6446.219632054162,
     "zmin": -276.0,
     "zmax": 3300.0
   },
   "imported_bounds_mm": {
-    "xmin": -250.0,
-    "xmax": 2995.4942978907216,
-    "ymin": -2.2737367544323206e-13,
-    "ymax": 6446.219632054212,
+    "xmin": -1.9610979506978765e-10,
+    "xmax": 3245.49429789,
+    "ymin": -200.0,
+    "ymax": 6446.219632054001,
     "zmin": -276.0,
     "zmax": 3300.0
   },

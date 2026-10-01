@@ -1,0 +1,2 @@
+exec(compile(open(r'D:\github\DXF2FREECAD2STEP\scripts\create_3d_floor_slope_model.py', encoding='utf-8').read(), r'D:\github\DXF2FREECAD2STEP\scripts\create_3d_floor_slope_model.py', 'exec'))
+exit()

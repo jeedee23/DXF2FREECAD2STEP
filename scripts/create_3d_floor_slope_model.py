@@ -18,7 +18,8 @@ OUTPUT_STEP_DIRECTORY = Path(r"D:\github\DXF2FREECAD2STEP\step")
 PROFILE_MANIFEST = Path(r"D:\github\DXF2FREECAD2STEP\fcstd\Drawing1 - Test Zevekote_vertical_l_profiles.json")
 FLOOR_THICKNESS_MM = 250.0
 WALL_THICKNESS_MM = 250.0
-WALL_HEIGHT_MM = 3300.0
+WALL_BOTTOM_Z_MM = -250.0
+WALL_TOP_Z_MM = 3300.0
 MIDDLE_LEVEL_ROW_DXF_CM = 933.5357606862363
 MIDDLE_LEVEL_ROW_MM = 3468.0
 TILE_COLUMNS = 3
@@ -89,7 +90,7 @@ def extract_floor_outline(document):
     wall_x = sum(wall_x_values) / len(wall_x_values)
 
     return {
-        "datum_dxf_cm": (wall_x, top_y),
+        "datum_dxf_cm": (outer_x, top_y),
         "width_mm": (outer_x - wall_x) * 10.0,
         "length_mm": (top_y - bottom_y) * 10.0,
         "middle_level_row_mm": (top_y - MIDDLE_LEVEL_ROW_DXF_CM) * 10.0,
@@ -114,11 +115,11 @@ def quadratic_value(y_value: float, samples):
 
 
 def floor_elevation(x_value: float, y_value: float, width_mm: float, length_mm: float, middle_y: float) -> float:
-    left_samples = ((0.0, 0.0), (middle_y, -9.5), (length_mm, -19.0))
-    right_samples = ((0.0, -20.0), (middle_y, -23.0), (length_mm, -26.0))
-    left_z = quadratic_value(y_value, left_samples)
-    right_z = quadratic_value(y_value, right_samples)
-    return left_z + (right_z - left_z) * (x_value / width_mm)
+    origin_side_samples = ((0.0, -20.0), (middle_y, -23.0), (length_mm, -26.0))
+    wall_side_samples = ((0.0, 0.0), (middle_y, -9.5), (length_mm, -19.0))
+    origin_side_z = quadratic_value(y_value, origin_side_samples)
+    wall_side_z = quadratic_value(y_value, wall_side_samples)
+    return origin_side_z + (wall_side_z - origin_side_z) * (x_value / width_mm)
 
 
 def make_face(points):
@@ -189,7 +190,7 @@ def profile_vector(profile, local_x_cm: float, local_y_cm: float, z_value: float
     source_x = local_x_cm * math.cos(rotation) - local_y_cm * math.sin(rotation)
     source_y = local_x_cm * math.sin(rotation) + local_y_cm * math.cos(rotation)
     global_x, global_y = profile["global_xy_mm"]
-    return FreeCAD.Vector(global_x + source_x * 10.0, global_y - source_y * 10.0, z_value)
+    return FreeCAD.Vector(global_x - source_x * 10.0, global_y - source_y * 10.0, z_value)
 
 
 def make_vertical_l_profile(profile, base_z: float, height_mm: float):
@@ -267,24 +268,44 @@ def add_vertical_l_profiles(document, assembly, outline):
     return component, profiles, manifest
 
 
-def add_wall(document, assembly, length_mm: float):
+def add_origin_marker(document, assembly):
+    component = document.addObject("App::Part", "OriginMarker")
+    component.Label = "Origin marker (global 0, 0, 0)"
+    add_string_property(component, "CoordinateSystem", "Visible global datum marker.")
+    assembly.addObject(component)
+
+    marker = document.addObject("Part::Feature", "OriginMarkerSolid")
+    marker.Label = "Origin marker 100 x -200 x 100 mm"
+    marker.Shape = Part.makeBox(100.0, 200.0, 100.0, FreeCAD.Vector(0.0, -200.0, 0.0))
+    add_float_property(marker, "XLengthMm", 100.0, "Origin marker")
+    add_float_property(marker, "YRangeStartMm", -200.0, "Origin marker")
+    add_float_property(marker, "ZLengthMm", 100.0, "Origin marker")
+    if marker.ViewObject:
+        marker.ViewObject.ShapeColor = (1.00, 0.55, 0.00)
+        marker.ViewObject.Transparency = 25
+    component.addObject(marker)
+    return component, marker
+
+
+def add_wall(document, assembly, width_mm: float, length_mm: float):
     wall_component = document.addObject("App::Part", "Wall")
     wall_component.Label = "Wall"
     add_string_property(wall_component, "SourceDXFLayer", "Bestaande ruwbouw")
     add_string_property(wall_component, "SourceDXFFile", str(SOURCE_DXF))
-    add_string_property(wall_component, "CoordinateSystem", "Shared global origin at floor point 1.")
+    add_string_property(wall_component, "CoordinateSystem", "Wall plane at positive X from shared P1 origin.")
     assembly.addObject(wall_component)
 
     wall = document.addObject("Part::Feature", "WallSolid")
-    wall.Label = "Existing rough-construction wall (250 mm x 3300 mm)"
+    wall.Label = "Existing rough-construction wall (Z -250 mm to +3300 mm)"
     wall.Shape = Part.makeBox(
         WALL_THICKNESS_MM,
         length_mm,
-        WALL_HEIGHT_MM,
-        FreeCAD.Vector(-WALL_THICKNESS_MM, 0.0, 0.0),
+        WALL_TOP_Z_MM - WALL_BOTTOM_Z_MM,
+        FreeCAD.Vector(width_mm, 0.0, WALL_BOTTOM_Z_MM),
     )
     add_float_property(wall, "ThicknessMm", WALL_THICKNESS_MM)
-    add_float_property(wall, "HeightMm", WALL_HEIGHT_MM)
+    add_float_property(wall, "BottomElevationMm", WALL_BOTTOM_Z_MM)
+    add_float_property(wall, "TopElevationMm", WALL_TOP_Z_MM)
     if wall.ViewObject:
         wall.ViewObject.ShapeColor = (0.80, 0.72, 0.57)
         wall.ViewObject.LineColor = (0.25, 0.20, 0.15)
@@ -292,7 +313,7 @@ def add_wall(document, assembly, length_mm: float):
     return wall_component, wall
 
 
-def validate_model(tiles, profiles, wall, outline, x_coordinates, y_coordinates):
+def validate_model(tiles, profiles, wall, origin_marker, outline, x_coordinates, y_coordinates):
     if len(tiles) != TILE_COLUMNS * TILE_ROWS:
         raise RuntimeError(f"Expected {TILE_COLUMNS * TILE_ROWS} floor tiles; created {len(tiles)}.")
     for tile in tiles:
@@ -309,16 +330,28 @@ def validate_model(tiles, profiles, wall, outline, x_coordinates, y_coordinates)
             raise RuntimeError(f"{profile.Label} is not at the shared global origin.")
     if not wall.Shape.isValid() or len(wall.Shape.Solids) != 1:
         raise RuntimeError("WallSolid is not one valid solid.")
+    if not origin_marker.Shape.isValid() or len(origin_marker.Shape.Solids) != 1:
+        raise RuntimeError("OriginMarkerSolid is not one valid solid.")
+    marker_box = origin_marker.Shape.BoundBox
+    if (
+        abs(marker_box.XMin) > 0.000001
+        or abs(marker_box.XMax - 100.0) > 0.000001
+        or abs(marker_box.YMin + 200.0) > 0.000001
+        or abs(marker_box.YMax) > 0.000001
+        or abs(marker_box.ZMin) > 0.000001
+        or abs(marker_box.ZMax - 100.0) > 0.000001
+    ):
+        raise RuntimeError("Origin marker does not occupy the required 100 x -200 x 100 mm range.")
 
     measurement_checks = {
         "point_1": floor_elevation(0.0, 0.0, outline["width_mm"], outline["length_mm"], outline["middle_level_row_mm"]),
-        "point_2": floor_elevation(outline["width_mm"], 0.0, outline["width_mm"], outline["length_mm"], outline["middle_level_row_mm"]),
-        "point_3": floor_elevation(0.0, outline["middle_level_row_mm"], outline["width_mm"], outline["length_mm"], outline["middle_level_row_mm"]),
-        "point_4": floor_elevation(outline["width_mm"], outline["middle_level_row_mm"], outline["width_mm"], outline["length_mm"], outline["middle_level_row_mm"]),
-        "point_5": floor_elevation(0.0, outline["length_mm"], outline["width_mm"], outline["length_mm"], outline["middle_level_row_mm"]),
-        "point_6": floor_elevation(outline["width_mm"], outline["length_mm"], outline["width_mm"], outline["length_mm"], outline["middle_level_row_mm"]),
+        "point_2": floor_elevation(0.0, outline["middle_level_row_mm"], outline["width_mm"], outline["length_mm"], outline["middle_level_row_mm"]),
+        "point_3": floor_elevation(0.0, outline["length_mm"], outline["width_mm"], outline["length_mm"], outline["middle_level_row_mm"]),
+        "point_4": floor_elevation(outline["width_mm"], outline["length_mm"], outline["width_mm"], outline["length_mm"], outline["middle_level_row_mm"]),
+        "point_5": floor_elevation(outline["width_mm"], outline["middle_level_row_mm"], outline["width_mm"], outline["length_mm"], outline["middle_level_row_mm"]),
+        "point_6": floor_elevation(outline["width_mm"], 0.0, outline["width_mm"], outline["length_mm"], outline["middle_level_row_mm"]),
     }
-    expected_levels = {"point_1": 0.0, "point_2": -20.0, "point_3": -9.5, "point_4": -23.0, "point_5": -19.0, "point_6": -26.0}
+    expected_levels = {"point_1": -20.0, "point_2": -23.0, "point_3": -26.0, "point_4": -19.0, "point_5": -9.5, "point_6": 0.0}
     for name, expected in expected_levels.items():
         if abs(measurement_checks[name] - expected) > 0.000001:
             raise RuntimeError(f"{name} is {measurement_checks[name]} mm, expected {expected} mm.")
@@ -338,8 +371,8 @@ def main() -> None:
     remove_imported_dxf(document)
 
     assembly = document.addObject("App::Part", "FloorWallAssembly")
-    assembly.Label = "Floor, wall, and vertical-profile assembly (shared global origin)"
-    add_string_property(assembly, "CoordinateSystem", "Point 1 is FreeCAD (0, 0, 0); DXF centimetres are scaled to millimetres.")
+    assembly.Label = "Floor, wall, profiles, and origin marker (shared global origin)"
+    add_string_property(assembly, "CoordinateSystem", "P1 is FreeCAD XY (0, 0); global Z = 0 is DXF BASIS.")
     add_string_property(assembly, "SourceDXFFile", str(SOURCE_DXF))
     add_float_property(assembly, "DXFToMillimetreScale", 10.0)
     add_float_property(assembly, "FloorWidthMm", outline["width_mm"])
@@ -349,26 +382,29 @@ def main() -> None:
     floor_component.Label = "Floor"
     add_string_property(floor_component, "SourceDXFLayer", "Dakrand")
     add_string_property(floor_component, "SourceDXFFile", str(SOURCE_DXF))
-    add_string_property(floor_component, "CoordinateSystem", "Shared global origin at floor point 1.")
+    add_string_property(floor_component, "CoordinateSystem", "P1 is global XY (0, 0); positive X runs toward P6/wall.")
     add_string_property(floor_component, "MeshMethod", "21 concrete-cut tiles, each split into two top-surface triangles.")
     add_float_property(floor_component, "ThicknessMm", FLOOR_THICKNESS_MM)
     assembly.addObject(floor_component)
 
     tiles, x_coordinates, y_coordinates = add_floor_tiles(document, floor_component, outline)
+    origin_component, origin_marker = add_origin_marker(document, assembly)
     vertical_profiles_component, profiles, profile_manifest = add_vertical_l_profiles(document, assembly, outline)
-    wall_component, wall = add_wall(document, assembly, outline["length_mm"])
+    wall_component, wall = add_wall(document, assembly, outline["width_mm"], outline["length_mm"])
     document.recompute()
-    checks = validate_model(tiles, profiles, wall, outline, x_coordinates, y_coordinates)
+    checks = validate_model(tiles, profiles, wall, origin_marker, outline, x_coordinates, y_coordinates)
 
     document.saveAs(str(OUTPUT_FCSTD))
     assembly_step = OUTPUT_STEP_DIRECTORY / "Drawing1 - Test Zevekote_floor_wall_assembly.step"
     floor_step = OUTPUT_STEP_DIRECTORY / "Drawing1 - Test Zevekote_floor.step"
     wall_step = OUTPUT_STEP_DIRECTORY / "Drawing1 - Test Zevekote_wall.step"
     profiles_step = OUTPUT_STEP_DIRECTORY / "Drawing1 - Test Zevekote_vertical_l_profiles.step"
-    Import.export(tiles + profiles + [wall], str(assembly_step))
-    Import.export(tiles, str(floor_step))
-    Import.export([wall], str(wall_step))
-    Import.export(profiles, str(profiles_step))
+    origin_step = OUTPUT_STEP_DIRECTORY / "Drawing1 - Test Zevekote_origin_marker.step"
+    Import.export(tiles + profiles + [wall, origin_marker], str(assembly_step))
+    Import.export(tiles + [origin_marker], str(floor_step))
+    Import.export([wall, origin_marker], str(wall_step))
+    Import.export(profiles + [origin_marker], str(profiles_step))
+    Import.export([origin_marker], str(origin_step))
 
     report = {
         "source_dxf": str(SOURCE_DXF),
@@ -378,6 +414,7 @@ def main() -> None:
             "floor": str(floor_step),
             "wall": str(wall_step),
             "vertical_l_profiles": str(profiles_step),
+            "origin_marker": str(origin_step),
         },
         "units": "mm",
         "dxf_units": "unitless; project instruction specifies centimetres",
@@ -400,14 +437,21 @@ def main() -> None:
         "wall": {
             "source_layer": "Bestaande ruwbouw",
             "thickness_mm": WALL_THICKNESS_MM,
-            "height_mm": WALL_HEIGHT_MM,
-            "floor_facing_plane": "X = 0 mm",
+            "height_mm": WALL_TOP_Z_MM - WALL_BOTTOM_Z_MM,
+            "floor_facing_plane": f"X = {outline['width_mm']} mm",
+            "bottom_elevation_mm": WALL_BOTTOM_Z_MM,
+            "top_elevation_mm": WALL_TOP_Z_MM,
         },
         "vertical_l_profiles": {
             "source_layer": profile_manifest["source_layer"],
             "profile_count": len(profiles),
             "profile_height_mm": profile_manifest["profile_height_mm"],
             "profile_section_mm": profile_manifest["profile_section_mm"],
+        },
+        "origin_marker": {
+            "x_range_mm": [0.0, 100.0],
+            "y_range_mm": [-200.0, 0.0],
+            "z_range_mm": [0.0, 100.0],
         },
     }
     OUTPUT_REPORT.write_text(json.dumps(report, indent=2), encoding="utf-8")

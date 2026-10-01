@@ -4,7 +4,7 @@
   "freecad_units": "mm",
   "dxf_to_mm_scale": 10.0,
   "datum_dxf_cm": [
-    285.6125547685915,
+    585.161984557639,
     1280.335760686236
   ],
   "source_layer": "Staal - L profielen verticaal",
@@ -18,104 +18,6 @@
   },
   "profiles": [
     {
-      "handle": "D8C",
-      "block": "L profiel verticaal voor kopse zijde",
-      "insert_dxf_cm": [
-        302.6815681235532,
-        1266.535760686236,
-        0.0
-      ],
-      "rotation_degrees": 90.0,
-      "global_xy_mm": [
-        170.6901335496167,
-        137.99999999999955
-      ]
-    },
-    {
-      "handle": "D8D",
-      "block": "L profiel verticaal voor kopse zijde",
-      "insert_dxf_cm": [
-        342.6815681235532,
-        1266.535760686236,
-        0.0
-      ],
-      "rotation_degrees": 90.0,
-      "global_xy_mm": [
-        570.6901335496167,
-        137.99999999999955
-      ]
-    },
-    {
-      "handle": "D8E",
-      "block": "L profiel verticaal voor kopse zijde",
-      "insert_dxf_cm": [
-        382.6815681235532,
-        1266.535760686236,
-        0.0
-      ],
-      "rotation_degrees": 90.0,
-      "global_xy_mm": [
-        970.6901335496167,
-        137.99999999999955
-      ]
-    },
-    {
-      "handle": "D8F",
-      "block": "L profiel verticaal voor kopse zijde",
-      "insert_dxf_cm": [
-        422.6815681235532,
-        1266.535760686236,
-        0.0
-      ],
-      "rotation_degrees": 90.0,
-      "global_xy_mm": [
-        1370.6901335496168,
-        137.99999999999955
-      ]
-    },
-    {
-      "handle": "D90",
-      "block": "L profiel verticaal voor kopse zijde",
-      "insert_dxf_cm": [
-        462.6815681235531,
-        1266.535760686236,
-        0.0
-      ],
-      "rotation_degrees": 90.0,
-      "global_xy_mm": [
-        1770.6901335496161,
-        137.99999999999955
-      ]
-    },
-    {
-      "handle": "D91",
-      "block": "L profiel verticaal voor kopse zijde",
-      "insert_dxf_cm": [
-        502.6815681235532,
-        1266.535760686236,
-        0.0
-      ],
-      "rotation_degrees": 90.0,
-      "global_xy_mm": [
-        2170.690133549617,
-        137.99999999999955
-      ]
-    },
-    {
-      "handle": "E4A",
-      "block": "L profiel verticaal voor kopse zijde",
-      "insert_dxf_cm": [
-        542.6815681235531,
-        1266.535760686236,
-        0.0
-      ],
-      "rotation_degrees": 90.0,
-      "global_xy_mm": [
-        2570.690133549616,
-        137.99999999999955
-      ]
-    },
-    {
       "handle": "D0F",
       "block": "L profiel verticaal voor langse zijde",
       "insert_dxf_cm": [
@@ -125,7 +27,7 @@
       ],
       "rotation_degrees": 0,
       "global_xy_mm": [
-        2857.4942978904733,
+        138.00000000000182,
         338.21779229393997
       ]
     },
@@ -139,7 +41,7 @@
       ],
       "rotation_degrees": 0,
       "global_xy_mm": [
-        2857.4942978904733,
+        138.00000000000182,
         728.21779229394
       ]
     },
@@ -153,7 +55,7 @@
       ],
       "rotation_degrees": 0,
       "global_xy_mm": [
-        2857.4942978904733,
+        138.00000000000182,
         1128.21779229394
       ]
     },
@@ -167,7 +69,7 @@
       ],
       "rotation_degrees": 0,
       "global_xy_mm": [
-        2857.4942978904733,
+        138.00000000000182,
         1528.21779229394
       ]
     },
@@ -181,7 +83,7 @@
       ],
       "rotation_degrees": 0,
       "global_xy_mm": [
-        2857.4942978904733,
+        138.00000000000182,
         1928.217792293949
       ]
     },
@@ -195,7 +97,7 @@
       ],
       "rotation_degrees": 0,
       "global_xy_mm": [
-        2857.4942978904733,
+        138.00000000000182,
         2328.21779229394
       ]
     },
@@ -209,7 +111,7 @@
       ],
       "rotation_degrees": 0,
       "global_xy_mm": [
-        2857.4942978904733,
+        138.00000000000182,
         2728.21779229394
       ]
     },
@@ -223,8 +125,106 @@
       ],
       "rotation_degrees": 0,
       "global_xy_mm": [
-        2857.4942978904733,
+        138.00000000000182,
         3128.2177922939445
+      ]
+    },
+    {
+      "handle": "E4A",
+      "block": "L profiel verticaal voor kopse zijde",
+      "insert_dxf_cm": [
+        542.6815681235531,
+        1266.535760686236,
+        0.0
+      ],
+      "rotation_degrees": 90.0,
+      "global_xy_mm": [
+        424.80416434085896,
+        137.99999999999955
+      ]
+    },
+    {
+      "handle": "D91",
+      "block": "L profiel verticaal voor kopse zijde",
+      "insert_dxf_cm": [
+        502.6815681235532,
+        1266.535760686236,
+        0.0
+      ],
+      "rotation_degrees": 90.0,
+      "global_xy_mm": [
+        824.8041643408584,
+        137.99999999999955
+      ]
+    },
+    {
+      "handle": "D90",
+      "block": "L profiel verticaal voor kopse zijde",
+      "insert_dxf_cm": [
+        462.6815681235531,
+        1266.535760686236,
+        0.0
+      ],
+      "rotation_degrees": 90.0,
+      "global_xy_mm": [
+        1224.804164340859,
+        137.99999999999955
+      ]
+    },
+    {
+      "handle": "D8F",
+      "block": "L profiel verticaal voor kopse zijde",
+      "insert_dxf_cm": [
+        422.6815681235532,
+        1266.535760686236,
+        0.0
+      ],
+      "rotation_degrees": 90.0,
+      "global_xy_mm": [
+        1624.8041643408583,
+        137.99999999999955
+      ]
+    },
+    {
+      "handle": "D8E",
+      "block": "L profiel verticaal voor kopse zijde",
+      "insert_dxf_cm": [
+        382.6815681235532,
+        1266.535760686236,
+        0.0
+      ],
+      "rotation_degrees": 90.0,
+      "global_xy_mm": [
+        2024.8041643408583,
+        137.99999999999955
+      ]
+    },
+    {
+      "handle": "D8D",
+      "block": "L profiel verticaal voor kopse zijde",
+      "insert_dxf_cm": [
+        342.6815681235532,
+        1266.535760686236,
+        0.0
+      ],
+      "rotation_degrees": 90.0,
+      "global_xy_mm": [
+        2424.8041643408583,
+        137.99999999999955
+      ]
+    },
+    {
+      "handle": "D8C",
+      "block": "L profiel verticaal voor kopse zijde",
+      "insert_dxf_cm": [
+        302.6815681235532,
+        1266.535760686236,
+        0.0
+      ],
+      "rotation_degrees": 90.0,
+      "global_xy_mm": [
+        2824.8041643408583,
+        137.99999999999955
       ]
     }
   ]

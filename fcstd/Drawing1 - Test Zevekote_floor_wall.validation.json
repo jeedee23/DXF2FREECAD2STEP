@@ -5,14 +5,15 @@
     "assembly": "D:\\github\\DXF2FREECAD2STEP\\step\\Drawing1 - Test Zevekote_floor_wall_assembly.step",
     "floor": "D:\\github\\DXF2FREECAD2STEP\\step\\Drawing1 - Test Zevekote_floor.step",
     "wall": "D:\\github\\DXF2FREECAD2STEP\\step\\Drawing1 - Test Zevekote_wall.step",
-    "vertical_l_profiles": "D:\\github\\DXF2FREECAD2STEP\\step\\Drawing1 - Test Zevekote_vertical_l_profiles.step"
+    "vertical_l_profiles": "D:\\github\\DXF2FREECAD2STEP\\step\\Drawing1 - Test Zevekote_vertical_l_profiles.step",
+    "origin_marker": "D:\\github\\DXF2FREECAD2STEP\\step\\Drawing1 - Test Zevekote_origin_marker.step"
   },
   "units": "mm",
   "dxf_units": "unitless; project instruction specifies centimetres",
   "dxf_to_mm_scale": 10.0,
   "datum": {
     "source_dxf_cm": [
-      285.6125547685915,
+      585.161984557639,
       1280.335760686236
     ],
     "freecad_mm": [
@@ -45,19 +46,21 @@
       6446.219632054162
     ],
     "measured_elevations_mm": {
-      "point_1": 0.0,
-      "point_2": -20.0,
-      "point_3": -9.5,
-      "point_4": -23.0,
-      "point_5": -19.0,
-      "point_6": -26.0
+      "point_1": -20.0,
+      "point_2": -23.0,
+      "point_3": -26.0,
+      "point_4": -19.0,
+      "point_5": -9.5,
+      "point_6": 0.0
     }
   },
   "wall": {
     "source_layer": "Bestaande ruwbouw",
     "thickness_mm": 250.0,
-    "height_mm": 3300.0,
-    "floor_facing_plane": "X = 0 mm"
+    "height_mm": 3550.0,
+    "floor_facing_plane": "X = 2995.494297890475 mm",
+    "bottom_elevation_mm": -250.0,
+    "top_elevation_mm": 3300.0
   },
   "vertical_l_profiles": {
     "source_layer": "Staal - L profielen verticaal",
@@ -70,5 +73,19 @@
       "inner_corner_radius": 2.0,
       "outer_corner_radius": 4.0
     }
+  },
+  "origin_marker": {
+    "x_range_mm": [
+      0.0,
+      100.0
+    ],
+    "y_range_mm": [
+      -200.0,
+      0.0
+    ],
+    "z_range_mm": [
+      0.0,
+      100.0
+    ]
   }
 }

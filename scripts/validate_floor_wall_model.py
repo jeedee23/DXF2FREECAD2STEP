@@ -54,9 +54,10 @@ def main() -> None:
     floor = source_document.getObject("Floor")
     vertical_profiles = source_document.getObject("VerticalLProfiles")
     wall = source_document.getObject("WallSolid")
-    if floor is None or vertical_profiles is None or wall is None:
+    origin_marker = source_document.getObject("OriginMarkerSolid")
+    if floor is None or vertical_profiles is None or wall is None or origin_marker is None:
         raise RuntimeError(
-            "The FCStd does not contain the required Floor, VerticalLProfiles, and WallSolid objects."
+            "The FCStd does not contain the required Floor, VerticalLProfiles, WallSolid, and OriginMarkerSolid objects."
         )
     tiles = [obj for obj in floor.Group if obj.Name.startswith("FloorTile")]
     if len(tiles) != 21:
@@ -68,7 +69,17 @@ def main() -> None:
         raise RuntimeError("A floor tile is not at the shared global origin.")
     if any(profile.Placement != FreeCAD.Placement() for profile in profiles):
         raise RuntimeError("A vertical L profile is not at the shared global origin.")
-    source_objects = tiles + profiles + [wall]
+    marker_box = origin_marker.Shape.BoundBox
+    if (
+        abs(marker_box.XMin) > TOLERANCE_MM
+        or abs(marker_box.XMax - 100.0) > TOLERANCE_MM
+        or abs(marker_box.YMin + 200.0) > TOLERANCE_MM
+        or abs(marker_box.YMax) > TOLERANCE_MM
+        or abs(marker_box.ZMin) > TOLERANCE_MM
+        or abs(marker_box.ZMax - 100.0) > TOLERANCE_MM
+    ):
+        raise RuntimeError("Origin marker does not preserve the required global range.")
+    source_objects = tiles + profiles + [wall, origin_marker]
     source_bounds = bounds_for(source_objects)
     source_solids = sum(len(obj.Shape.Solids) for obj in source_objects)
     FreeCAD.closeDocument(source_document.Name)
@@ -91,6 +102,11 @@ def main() -> None:
                 "step": str(STEP_PATH),
                 "tile_count": len(tiles),
                 "vertical_profile_count": len(profiles),
+                "origin_marker": {
+                    "x_range_mm": [marker_box.XMin, marker_box.XMax],
+                    "y_range_mm": [marker_box.YMin, marker_box.YMax],
+                    "z_range_mm": [marker_box.ZMin, marker_box.ZMax],
+                },
                 "source_solid_count": source_solids,
                 "imported_solid_count": imported_solids,
                 "source_bounds_mm": source_bounds,
