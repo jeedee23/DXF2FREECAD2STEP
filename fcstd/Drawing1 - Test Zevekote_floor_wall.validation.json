@@ -1,0 +1,61 @@
+{
+  "source_dxf": "D:\\github\\DXF2FREECAD2STEP\\dxf\\Drawing1 - Test Zevekote.dxf",
+  "output_fcstd": "D:\\github\\DXF2FREECAD2STEP\\fcstd\\Drawing1 - Test Zevekote_floor_wall.FCStd",
+  "output_step": {
+    "assembly": "D:\\github\\DXF2FREECAD2STEP\\step\\Drawing1 - Test Zevekote_floor_wall_assembly.step",
+    "floor": "D:\\github\\DXF2FREECAD2STEP\\step\\Drawing1 - Test Zevekote_floor.step",
+    "wall": "D:\\github\\DXF2FREECAD2STEP\\step\\Drawing1 - Test Zevekote_wall.step"
+  },
+  "units": "mm",
+  "dxf_units": "unitless; project instruction specifies centimetres",
+  "dxf_to_mm_scale": 10.0,
+  "datum": {
+    "source_dxf_cm": [
+      285.6125547685915,
+      1280.335760686236
+    ],
+    "freecad_mm": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "point": "1"
+  },
+  "floor": {
+    "source_layer": "Dakrand",
+    "width_mm": 2995.494297890475,
+    "length_mm": 6446.219632054161,
+    "thickness_mm": 250.0,
+    "tile_count": 21,
+    "x_coordinates_mm": [
+      0.0,
+      1000.0,
+      2000.0,
+      2995.494297890475
+    ],
+    "y_coordinates_mm": [
+      0.0,
+      1000.0,
+      2000.0,
+      3000.0,
+      3467.9999999999973,
+      4467.999999999997,
+      5467.999999999997,
+      6446.219632054161
+    ],
+    "measured_elevations_mm": {
+      "point_1": 0.0,
+      "point_2": -20.0,
+      "point_3": -9.5,
+      "point_4": -23.0,
+      "point_5": -19.0,
+      "point_6": -26.0
+    }
+  },
+  "wall": {
+    "source_layer": "Bestaande ruwbouw",
+    "thickness_mm": 250.0,
+    "height_mm": 3300.0,
+    "floor_facing_plane": "X = 0 mm"
+  }
+}

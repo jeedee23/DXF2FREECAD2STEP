@@ -1,0 +1,101 @@
+{
+  "source_dxf": "D:\\github\\DXF2FREECAD2STEP\\dxf\\Drawing1 - Test Zevekote.dxf",
+  "output_fcstd": "D:\\github\\DXF2FREECAD2STEP\\fcstd\\Drawing1 - Test Zevekote_3D_reference.FCStd",
+  "units": "mm",
+  "dxf_import": {
+    "dxfVersion": "AC1032",
+    "dxfEncoding": "utf_8",
+    "scalingSource": "$INSUNITS",
+    "fileUnits": "Millimeters",
+    "finalScalingFactor": 1.0,
+    "importTimeSeconds": 1.9039402,
+    "totalEntitiesCreated": 927,
+    "entityCounts": {
+      "ARC": 16,
+      "BLOCK": 20,
+      "CIRCLE": 78,
+      "DIMENSION": 11,
+      "HATCH": 6,
+      "INSERT": 48,
+      "LINE": 372,
+      "LWPOLYLINE": 396,
+      "MTEXT": 52
+    },
+    "importSettings": {
+      "Import hidden blocks": "No",
+      "Import layout objects": "No",
+      "Import points": "Yes",
+      "Import texts and dimensions": "No",
+      "Join geometry": "No",
+      "Manual scaling factor": "1.000000",
+      "Use colors from the DXF file": "Yes",
+      "Use layers": "Yes"
+    },
+    "unsupportedFeatures": {
+      "Entity type 'HATCH'": [
+        [
+          25314,
+          "61A"
+        ],
+        [
+          25426,
+          "62A"
+        ],
+        [
+          25550,
+          "634"
+        ],
+        [
+          26732,
+          "749"
+        ],
+        [
+          36988,
+          "B94"
+        ],
+        [
+          37146,
+          "B96"
+        ]
+      ]
+    },
+    "systemBlockCounts": {
+      "Dimension-related (*D)": 11,
+      "Other System Blocks": 3
+    }
+  },
+  "layer_components_created": 21,
+  "floor_elevations": {
+    "wall_baseline_mm": 0.0,
+    "corner_post_floor_elevation_mm": -20.0,
+    "middle_post_floor_elevation_mm": -23.0,
+    "corner_fall_mm": 20.0,
+    "middle_fall_mm": 23.0,
+    "wall_to_corner_post_run_mm": 294.42949495828447,
+    "wall_to_middle_post_run_mm": 286.67357154918534,
+    "surface_interpolation": "Piecewise-linear interpolation between documented wall baseline and the two documented post elevations."
+  },
+  "floor_solid": {
+    "thickness_mm": 250.0,
+    "solid_count": 2,
+    "volume_mm3": 24701138.88951628
+  },
+  "column_floor_placements": [
+    {
+      "object": "Link_Hoekkolom_plan",
+      "label": "Hoekkolom plan",
+      "elevation_mm": -20.0
+    },
+    {
+      "object": "Link_Middelkolom_plan",
+      "label": "Middelkolom plan",
+      "elevation_mm": -23.0
+    }
+  ],
+  "limitations": [
+    "DXF outlines are imported as source geometry; no unsupported extrusion thickness is invented.",
+    "The 250 mm floor solid is derived from the documented top-floor elevations and extruded vertically downward.",
+    "Only the two identifiable plan-view column instances are placed on the floor; unmapped detail strokes remain at source Z=0.",
+    "Physical material mapping remains unresolved."
+  ]
+}
